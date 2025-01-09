@@ -8,9 +8,33 @@ import (
 )
 
 type Episode struct {
+	titleFormatter
 	rawTitle string
 	Feed     string
 	Title    string
+}
+
+type titleFormatter func(raw string) string
+
+func defaultTitleFormatter(raw string) string {
+	return raw
+}
+
+func (ep *Episode) FinalizeTitle() {
+	ep.Title = ep.titleFormatter(ep.rawTitle)
+}
+
+func applePodcastsTitleFormatter(raw string) string {
+	parts := strings.Split(raw, " - ")
+	return parts[0]
+}
+
+func transistorFMTitleFormatter(raw string) string {
+	parts := strings.Split(raw, " | ")
+	if len(parts) > 0 {
+		return parts[1]
+	}
+	return raw
 }
 
 type ApplePodcastServerData []struct {
@@ -35,13 +59,32 @@ func ExtractFeed(source string) (*Episode, error) {
 		return nil, err
 	}
 
-	ep := &Episode{}
+	ep := &Episode{titleFormatter: defaultTitleFormatter}
 
 	var traverse func(*html.Node)
 	traverse = func(node *html.Node) {
 		if node.Type == html.ElementNode && node.Data == "title" {
 			if node.FirstChild != nil && node.FirstChild.Type == html.TextNode {
 				ep.rawTitle = node.FirstChild.Data
+				ep.titleFormatter = applePodcastsTitleFormatter
+			}
+		}
+
+		if node.Type == html.ElementNode && node.Data == "link" {
+			var linkRel, linkType, linkHref string
+			for _, a := range node.Attr {
+				switch a.Key {
+				case "rel":
+					linkRel = a.Val
+				case "type":
+					linkType = a.Val
+				case "href":
+					linkHref = a.Val
+				}
+			}
+			if linkRel == "alternate" && linkType == "application/rss+xml" && strings.HasPrefix(linkHref, "https://feeds.transistor.fm") {
+				ep.Feed = linkHref
+				ep.titleFormatter = transistorFMTitleFormatter
 			}
 		}
 
@@ -63,8 +106,7 @@ func ExtractFeed(source string) (*Episode, error) {
 	}
 	traverse(doc)
 
-	titleParts := strings.Split(ep.rawTitle, " - ")
-	ep.Title = titleParts[0]
+	ep.FinalizeTitle()
 
 	return ep, nil
 }

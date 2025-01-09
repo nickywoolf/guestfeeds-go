@@ -27,6 +27,20 @@ func TestNewEpisode(t *testing.T) {
 			feed:  "https://feeds.podcasts.com/show-handle",
 			title: "Episode Title",
 		},
+		{
+			name: "Transistor.fm Episode Page",
+			input: `<!DOCTYPE html>
+			<html>
+				<head>
+					<title>Show Title | Episode Title</title>
+					<link rel="alternate" type="application/rss+xml" href="https://feeds.transistor.fm/show-handle" />
+				</head>
+				<body>
+				</body>
+			</html>`,
+			feed:  "https://feeds.transistor.fm/show-handle",
+			title: "Episode Title",
+		},
 	}
 
 	for _, tc := range tests {
